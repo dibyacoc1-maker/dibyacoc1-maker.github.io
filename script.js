@@ -727,6 +727,18 @@ function renderPreview(f) {
   sec.classList.remove('hidden');
 }
 
+// ── base64 data URL → Blob (needed for mobile download) ──
+function dataURLtoBlob(dataUrl) {
+  const [header, base64] = dataUrl.split(',');
+  const mime = header.match(/:(.*?);/)[1];
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return new Blob([bytes], { type: mime });
+}
+
 async function doDownload(meta, sid, f) {
   const btn = document.getElementById('btnDownload');
   btn.disabled    = true;
@@ -754,11 +766,36 @@ async function doDownload(meta, sid, f) {
   // Trigger download
   if (f.url) {
     try {
-      const a = document.createElement('a');
-      a.href = f.url; a.download = f.name; a.target = '_blank'; a.rel = 'noopener';
-      document.body.appendChild(a); a.click(); a.remove();
+      if (f.url.startsWith('data:')) {
+        // base64 data URL → convert to Blob → Object URL
+        // Mobile Chrome cannot download data: URLs directly via <a download>
+        const blob = dataURLtoBlob(f.url);
+        const objectUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = objectUrl;
+        a.download = f.name;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        // Revoke after short delay
+        setTimeout(() => URL.revokeObjectURL(objectUrl), 10000);
+      } else {
+        // External URL — open in new tab (best for mobile)
+        const a = document.createElement('a');
+        a.href = f.url;
+        a.download = f.name;
+        a.target = '_blank';
+        a.rel = 'noopener';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      }
       toast('Download started! 🎉', 'success');
-    } catch { window.open(f.url, '_blank'); }
+    } catch (e) {
+      // Final fallback
+      window.open(f.url, '_blank');
+      toast('Opening file… tap to save 📥', 'info');
+    }
   } else {
     toast('File URL not available', 'error');
   }
