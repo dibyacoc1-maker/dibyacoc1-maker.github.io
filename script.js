@@ -18,8 +18,9 @@ const FB_URL = 'https://share-b5188-default-rtdb.firebaseio.com';
 // New timestamps: https://currentmillis.com
 const RULES_EXPIRY_MS = 1775930400000;
 
-// File size threshold: ≤ this → store as base64 in Firebase
-const BASE64_THRESHOLD = 5 * 1024 * 1024; // 5 MB
+// File size threshold: ≤ this → store as base64 in Firebase (split into separate node)
+// Firebase allows 10MB per string, base64 adds ~33% overhead, so 7MB raw ≈ 9.3MB base64 = safe
+const BASE64_THRESHOLD = 7 * 1024 * 1024; // 7 MB raw → ~9.3 MB base64 (safe under 10MB limit)
 
 // Max total file size
 const MAX_SIZE_MB = 10;
@@ -82,16 +83,67 @@ async function getNextShareId() {
 
 async function saveShareMeta(meta) {
   const sid = await getNextShareId();
-  await fbSet(`shares/${sid}`, { ...meta, id: sid });
+
+  // Separate base64 file data from metadata to avoid large single writes.
+  // Firebase silently hangs on large PUT payloads, so we split:
+  //   shares/{sid}        → metadata (no base64 blobs)
+  //   filedata/{sid}/{i}  → base64 string per file (separate PUT each)
+  const filesWithoutData = [];
+  for (let i = 0; i < meta.files.length; i++) {
+    const f = meta.files[i];
+    if (f.storage === 'firebase' && f.url && f.url.startsWith('data:')) {
+      // Store base64 separately
+      await fbSet(`filedata/${sid}/${i}`, f.url);
+      filesWithoutData.push({ ...f, url: `__fb:${sid}/${i}` });
+    } else {
+      filesWithoutData.push(f);
+    }
+  }
+
+  // Build primaryFile ref too
+  const primaryIdx = meta.files.indexOf(meta.primaryFile);
+  const cleanMeta = {
+    ...meta,
+    id: sid,
+    files: filesWithoutData,
+    primaryFile: filesWithoutData[primaryIdx >= 0 ? primaryIdx : 0],
+  };
+
+  await fbSet(`shares/${sid}`, cleanMeta);
   return sid;
 }
 
 async function getShareMeta(sid) {
-  return fbGet(`shares/${sid}`);
+  const meta = await fbGet(`shares/${sid}`);
+  if (!meta) return null;
+
+  // Re-attach base64 data for any firebase-stored files
+  const files = await Promise.all((meta.files || []).map(async (f, i) => {
+    if (f.url && f.url.startsWith('__fb:')) {
+      const path = f.url.replace('__fb:', 'filedata/');
+      const data = await fbGet(path);
+      return { ...f, url: data || '' };
+    }
+    return f;
+  }));
+
+  // Rebuild primaryFile with real URL
+  const primaryIdx = (meta.files || []).findIndex(f => f.url === meta.primaryFile?.url);
+  return {
+    ...meta,
+    files,
+    primaryFile: files[primaryIdx >= 0 ? primaryIdx : 0] || files[0],
+  };
 }
 
 async function updateShareMeta(sid, patch) {
-  return fbUpdate(`shares/${sid}`, patch);
+  // Never write base64 blobs through update — strip them out
+  const safePatch = { ...patch };
+  if (safePatch.files) {
+    safePatch.files = safePatch.files.map(f => ({ ...f, url: f.url?.startsWith('data:') ? '__stripped__' : f.url }));
+  }
+  delete safePatch.primaryFile; // avoid re-writing large field
+  return fbUpdate(`shares/${sid}`, safePatch);
 }
 
 // ── File → base64 data URL ───────────────────────────────
@@ -246,7 +298,7 @@ function renderFileList() {
   if (bigFiles.length) {
     const note = document.createElement('div');
     note.style.cssText = 'font-size:.8rem;color:var(--yellow);padding:6px 10px;background:var(--yellow-dim);border-radius:8px;margin-bottom:8px;';
-    note.textContent = `⚠️ Files >5MB will use external upload (requires internet access to file.io/0x0.st)`;
+    note.textContent = `⚠️ Files >7MB will use external upload (file.io / 0x0.st)`;
     wrap.appendChild(note);
   }
 
