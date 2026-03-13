@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DibyaShare — Temporary File Sharing</title>
+  <meta name="description" content="Share files instantly. No sign-up needed. Files expire after 24 hours. Created by Dibya Jyoti Mahanta." />
+  <meta name="author" content="Dibya Jyoti Mahanta" />
+  <meta property="og:title" content="DibyaShare — Temporary File Sharing" />
+  <meta property="og:description" content="Drop a file, share the link. It's that simple." />
+  <meta property="og:type" content="website" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📤</text></svg>" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+</head>
+<body>
+  <!-- NAV -->
+  <nav>
+    <a class="nav-logo" href="index.html">
+      <div class="nav-logo-icon">📤</div>
+      DibyaShare
+    </a>
+    <div class="nav-actions">
+      <button class="theme-toggle" id="themeToggle" title="Toggle theme">☀️</button>
+    </div>
+  </nav>
+
+  <main>
+    <!-- HERO -->
+    <div class="hero">
+      <h1>Drop. Share. Gone in 24h.</h1>
+      <p>Instant temporary file sharing. No account required. Files auto-expire for your privacy.</p>
+    </div>
+
+    <div class="container">
+
+      <!-- UPLOAD CARD -->
+      <div class="upload-card" id="uploadCard">
+
+        <!-- SECTION: DROP ZONE -->
+        <div id="uploadSection">
+          <div class="drop-zone" id="dropZone">
+            <span class="drop-zone-icon">📂</span>
+            <h3>Drop files here</h3>
+            <p>or choose from your device</p>
+            <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
+              <button class="btn-pick" id="btnPickFile">
+                📄 Choose Files
+              </button>
+              <button class="btn-pick" id="btnPickFolder" style="background:var(--surface-2);color:var(--text-2);border:1px solid var(--border);">
+                📁 Choose Folder
+              </button>
+            </div>
+            <div class="drop-zone-meta">
+              Max file size: <strong>500 MB</strong> per file · Multiple files supported
+            </div>
+          </div>
+
+          <input type="file" id="fileInput" multiple style="display:none;" />
+          <input type="file" id="folderInput" webkitdirectory multiple style="display:none;" />
+
+          <!-- FILE LIST -->
+          <div id="fileListSection" class="hidden">
+            <div class="file-list">
+              <div class="file-list-header">
+                <h4>📋 Selected Files</h4>
+                <button class="btn-clear-all" onclick="clearAll()">✕ Clear All</button>
+              </div>
+              <div id="fileListContainer"></div>
+            </div>
+          </div>
+
+          <!-- OPTIONS -->
+          <div class="section-label">Upload Options</div>
+          <div class="options-panel">
+            <div class="opt-group">
+              <label>Expiration</label>
+              <select id="expirySelect">
+                <option value="3600">1 hour</option>
+                <option value="21600">6 hours</option>
+                <option value="86400" selected>24 hours</option>
+                <option value="259200">3 days</option>
+              </select>
+            </div>
+            <div class="opt-group">
+              <label>Download Limit</label>
+              <input type="number" id="dlLimit" min="0" max="999" placeholder="0 = unlimited" value="" />
+            </div>
+            <div class="opt-group">
+              <label>File Type Filter</label>
+              <select id="typeFilter">
+                <option value="all">All Types</option>
+                <option value="images">Images Only</option>
+                <option value="docs">Documents Only</option>
+                <option value="media">Audio/Video Only</option>
+              </select>
+            </div>
+            <div class="opt-group">
+              <label>Password (optional)</label>
+              <input type="password" id="passwordInput" placeholder="Leave blank for no password" />
+            </div>
+          </div>
+
+          <!-- TOGGLES -->
+          <div class="section-label">Advanced</div>
+          <div style="padding:0 24px 16px;">
+            <div class="toggle-row" id="toggleOneTime">
+              <span class="toggle-label">🔂 One-time download only</span>
+              <label class="toggle"><input type="checkbox" /><span class="toggle-track"></span></label>
+            </div>
+            <div class="toggle-row" id="toggleAutoDelete">
+              <span class="toggle-label">🗑️ Auto delete after download</span>
+              <label class="toggle"><input type="checkbox" /><span class="toggle-track"></span></label>
+            </div>
+            <div class="toggle-row" id="toggleZip">
+              <span class="toggle-label">🗜️ Create ZIP for multiple files</span>
+              <label class="toggle"><input type="checkbox" checked /><span class="toggle-track"></span></label>
+            </div>
+          </div>
+
+          <!-- NOTE TO DOWNLOADER -->
+          <div class="section-label">Message for Downloader</div>
+          <div class="note-area">
+            <label>Leave a note (shown on download page)</label>
+            <textarea id="uploaderNote" placeholder="Hey! Here's the file you requested. Let me know if you have any questions. 😊" maxlength="500"></textarea>
+          </div>
+
+          <!-- UPLOAD BUTTON -->
+          <div class="upload-footer">
+            <button class="btn-upload" id="btnUpload" disabled>
+              <span>⬆&nbsp;&nbsp;Upload &amp; Get Link</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- PROGRESS -->
+        <div class="progress-section" id="progressSection">
+          <div class="progress-header">
+            <span class="progress-label" id="progressLabel">Uploading…</span>
+            <span class="progress-stats" id="progressStats"></span>
+          </div>
+          <div class="progress-bar">
+            <div class="progress-fill" id="progressFill" style="width:0%"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
+            <span style="font-size:0.9rem;font-weight:700;color:var(--accent-2)" id="progressPercent">0%</span>
+            <div class="progress-controls">
+              <button class="btn-sm" id="btnPause">⏸ Pause</button>
+              <button class="btn-sm danger" id="btnCancel">✕ Cancel</button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+      <!-- /UPLOAD CARD -->
+
+      <!-- SUCCESS PANEL -->
+      <div class="upload-card" id="successPanel" style="display:none;">
+        <div style="padding:28px 24px;">
+          <div class="success-icon">✅</div>
+          <h3 style="font-family:'Syne',sans-serif;font-size:1.4rem;font-weight:700;text-align:center;margin-bottom:6px;">Upload Successful!</h3>
+          <p style="color:var(--text-2);font-size:0.9rem;text-align:center;margin-bottom:24px;">Your file is ready to share. The link expires automatically.</p>
+
+          <!-- LINK BOX -->
+          <div class="link-box">
+            <input type="text" class="link-input" id="shareLink" readonly />
+            <button class="btn-copy" id="btnCopyLink" onclick="copyLink()">Copy</button>
+          </div>
+
+          <!-- SHARE BUTTONS -->
+          <div class="share-actions">
+            <a href="#" class="btn-share email" id="btnShareEmail">✉️ Email</a>
+            <a href="#" class="btn-share whatsapp" id="btnShareWA" target="_blank">💬 WhatsApp</a>
+            <a href="#" class="btn-share telegram" id="btnShareTG" target="_blank">✈️ Telegram</a>
+          </div>
+
+          <!-- FILE INFO CARDS -->
+          <div class="info-cards">
+            <div class="info-card">
+              <div class="info-card-label">File Name</div>
+              <div class="info-card-value" id="infoFileName">—</div>
+            </div>
+            <div class="info-card">
+              <div class="info-card-label">File Size</div>
+              <div class="info-card-value" id="infoFileSize">—</div>
+            </div>
+            <div class="info-card">
+              <div class="info-card-label">File Type</div>
+              <div class="info-card-value" id="infoFileType">—</div>
+            </div>
+            <div class="info-card">
+              <div class="info-card-label">Uploaded At</div>
+              <div class="info-card-value" id="infoUploadTime">—</div>
+            </div>
+            <div class="info-card">
+              <div class="info-card-label">Expires At</div>
+              <div class="info-card-value yellow" id="infoExpiry">—</div>
+            </div>
+            <div class="info-card">
+              <div class="info-card-label">DL Limit</div>
+              <div class="info-card-value accent" id="infoDlLimit">—</div>
+            </div>
+          </div>
+
+          <!-- COUNTDOWN -->
+          <div style="text-align:center;margin-top:20px;padding:16px;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius-sm);">
+            <div style="font-size:0.75rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-3);margin-bottom:6px;">⏱ Time Remaining</div>
+            <div class="countdown-display" id="countdownDisplay">—</div>
+          </div>
+
+          <!-- QR -->
+          <div class="qr-section">
+            <h4>📱 QR Code</h4>
+            <div id="qrcode"></div>
+          </div>
+
+          <div style="text-align:center;margin-top:16px;">
+            <button class="btn-new-upload" id="btnNewUpload">+ Upload Another File</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- FOOTER -->
+  <footer>
+    <p>Created by <strong>Dibya Jyoti Mahanta</strong> · DibyaShare v1.0 · Files auto-expire for your privacy</p>
+  </footer>
+
+  <!-- TOASTS -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script src="script.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', initUploadPage);
+    // Wire success panel visibility
+    const origShow = window.showSuccess;
+    document.getElementById('successPanel').style.display = '';
+    document.getElementById('successPanel').classList.add('hidden');
+  </script>
+</body>
+</html>
