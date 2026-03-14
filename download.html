@@ -1,26 +1,51 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>DibyaShare — Download File</title>
-  <meta name="description" content="Download your shared file from DibyaShare. Temporary file sharing by Dibya Jyoti Mahanta." />
-  <meta name="author" content="Dibya Jyoti Mahanta" />
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📥</text></svg>" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="stylesheet" href="style.css" />
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>DibyaShare — Download</title>
+  <meta name="author" content="Dibya Jyoti Mahanta"/>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📥</text></svg>"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link rel="stylesheet" href="style.css"/>
+  <style>
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner { display:inline-block; animation: spin 1s linear infinite; font-size:2rem; }
+
+    /* ── Inline preview box ── */
+    #previewBox {
+      width:100%; border-radius:12px; overflow:hidden;
+      background:var(--bg-2); border:1px solid var(--border);
+      margin-bottom:20px; display:none;
+    }
+    #previewBox img  { width:100%; max-height:340px; object-fit:contain; display:block; }
+    #previewBox video{ width:100%; max-height:320px; display:block; }
+    #previewBox audio{ width:100%; padding:16px; display:block; }
+    #previewBox embed{ width:100%; height:360px; border:none; display:block; }
+    #previewBox pre  {
+      padding:16px; overflow:auto; max-height:260px; font-size:.8rem;
+      white-space:pre-wrap; word-break:break-word; color:var(--text-2);
+      text-align:left; margin:0; font-family:'Courier New',monospace;
+    }
+    #previewBox .no-preview {
+      padding:32px 16px; text-align:center; color:var(--text-3); font-size:.88rem;
+    }
+
+    /* ── Download button states ── */
+    #btnDownload { transition: all .2s ease; }
+    #btnDownload:disabled { opacity:.5; cursor:not-allowed; transform:none !important; }
+    #btnDownload.done { background: linear-gradient(135deg,#4ade80,#22c55e); }
+  </style>
 </head>
 <body>
-  <!-- NAV -->
   <nav>
     <a class="nav-logo" href="index.html">
-      <div class="nav-logo-icon">📤</div>
-      DibyaShare
+      <div class="nav-logo-icon">📤</div>DibyaShare
     </a>
     <div class="nav-actions">
-      <button class="theme-toggle" id="themeToggle" title="Toggle theme">☀️</button>
-      <a href="index.html" style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--text-2);font-size:0.82rem;font-weight:600;text-decoration:none;transition:all var(--transition);" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-2)'">
+      <button class="theme-toggle" id="themeToggle">☀️</button>
+      <a href="index.html" style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--text-2);font-size:.82rem;font-weight:600;text-decoration:none;">
         + Share a File
       </a>
     </div>
@@ -31,63 +56,62 @@
       <div style="width:100%;max-width:620px;margin:0 auto;">
 
         <!-- LOADING -->
-        <div id="loadingState" style="text-align:center;padding:60px 24px;">
-          <div style="font-size:2.5rem;margin-bottom:16px;animation:spin 1s linear infinite;">⟳</div>
-          <p style="color:var(--text-2);">Loading file info…</p>
-        </div>
-
-        <!-- PASSWORD GATE -->
-        <div id="passwordGate" class="download-card hidden" style="padding:40px 32px;">
-          <div style="text-align:center;">
-            <div style="font-size:3rem;margin-bottom:16px;">🔐</div>
-            <h3 style="font-family:'Syne',sans-serif;font-size:1.3rem;font-weight:700;margin-bottom:8px;">Password Protected</h3>
-            <p style="color:var(--text-2);font-size:0.9rem;margin-bottom:24px;">This file requires a password to download.</p>
-            <div class="password-input-row">
-              <input type="password" id="passwordInput" placeholder="Enter password…" />
-              <button class="btn-unlock" id="btnUnlock">Unlock</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- EXPIRED -->
-        <div id="expiredState" class="download-card hidden" style="padding:48px 32px;text-align:center;">
-          <span style="font-size:3.5rem;display:block;margin-bottom:16px;">⏰</span>
-          <h3 style="font-family:'Syne',sans-serif;font-size:1.4rem;font-weight:700;margin-bottom:8px;">This link has expired</h3>
-          <p style="color:var(--text-2);font-size:0.9rem;margin-bottom:24px;">Files are automatically deleted after expiration for privacy.</p>
-          <a href="index.html" class="btn-download" style="display:inline-flex;width:auto;padding:12px 28px;text-decoration:none;">📤 Share Your Own File</a>
+        <div id="stateLoading" style="text-align:center;padding:80px 24px;">
+          <span class="spinner">⟳</span>
+          <p style="color:var(--text-2);margin-top:16px;">Loading file info…</p>
         </div>
 
         <!-- ERROR -->
-        <div id="errorState" class="download-card hidden" style="padding:48px 32px;text-align:center;">
+        <div id="stateError" class="download-card hidden" style="padding:48px 32px;text-align:center;">
           <span style="font-size:3.5rem;display:block;margin-bottom:16px;">❌</span>
-          <h3 style="font-family:'Syne',sans-serif;font-size:1.4rem;font-weight:700;margin-bottom:8px;">File Not Found</h3>
-          <p style="color:var(--text-2);font-size:0.9rem;margin-bottom:24px;" id="errorMsg">This link doesn't exist or has expired.</p>
+          <h3 style="font-family:'Syne',sans-serif;font-size:1.3rem;font-weight:700;margin-bottom:8px;">File Not Found</h3>
+          <p style="color:var(--text-2);font-size:.9rem;margin-bottom:24px;" id="errorMsg">This link doesn't exist or has expired.</p>
           <a href="index.html" class="btn-download" style="display:inline-flex;width:auto;padding:12px 28px;text-decoration:none;">📤 Share Your Own File</a>
         </div>
 
-        <!-- DOWNLOAD PAGE -->
-        <div id="downloadPage" class="download-card hidden">
+        <!-- EXPIRED -->
+        <div id="stateExpired" class="download-card hidden" style="padding:48px 32px;text-align:center;">
+          <span style="font-size:3.5rem;display:block;margin-bottom:16px;">⏰</span>
+          <h3 style="font-family:'Syne',sans-serif;font-size:1.3rem;font-weight:700;margin-bottom:8px;">Link Expired</h3>
+          <p style="color:var(--text-2);font-size:.9rem;margin-bottom:24px;">This file has been automatically deleted.</p>
+          <a href="index.html" class="btn-download" style="display:inline-flex;width:auto;padding:12px 28px;text-decoration:none;">📤 Share Your Own File</a>
+        </div>
 
-          <!-- HEADER -->
+        <!-- PASSWORD GATE -->
+        <div id="statePw" class="download-card hidden" style="padding:40px 32px;text-align:center;">
+          <div style="font-size:3rem;margin-bottom:16px;">🔐</div>
+          <h3 style="font-family:'Syne',sans-serif;font-size:1.2rem;font-weight:700;margin-bottom:8px;">Password Protected</h3>
+          <p style="color:var(--text-2);font-size:.88rem;margin-bottom:20px;">Enter the password to access this file.</p>
+          <div class="password-input-row">
+            <input type="password" id="pwInput" placeholder="Password…"/>
+            <button class="btn-unlock" id="btnUnlock">Unlock</button>
+          </div>
+          <p id="pwError" style="color:var(--red);font-size:.82rem;margin-top:10px;display:none;">Wrong password. Try again.</p>
+        </div>
+
+        <!-- MAIN DOWNLOAD CARD -->
+        <div id="stateMain" class="download-card hidden">
+
+          <!-- Header -->
           <div class="download-card-header">
-            <span class="download-file-icon" id="dlFileIcon">📄</span>
-            <div class="download-file-name" id="dlFileName">filename.ext</div>
+            <div id="fileIconWrap" style="margin-bottom:10px;"></div>
+            <div class="download-file-name" id="dlFileName">—</div>
             <div class="download-file-meta" id="dlFileMeta">—</div>
+            <div id="dlBadge" style="display:inline-block;margin-top:10px;padding:4px 14px;background:rgba(124,106,255,.15);border:1px solid rgba(124,106,255,.35);border-radius:20px;font-family:monospace;font-size:.85rem;font-weight:700;color:#9d8fff;"></div>
           </div>
 
-          <!-- BODY -->
           <div class="download-card-body">
 
-            <!-- UPLOADER NOTE -->
-            <div class="uploader-note hidden" id="uploaderNote">
-              <strong>📝 Note from the sender</strong>
+            <!-- Uploader note -->
+            <div id="uploaderNote" class="uploader-note hidden">
+              <strong>📝 Note from sender</strong>
               <span id="noteText"></span>
             </div>
 
             <!-- PREVIEW -->
-            <div class="preview-section hidden" id="previewSection"></div>
+            <div id="previewBox"></div>
 
-            <!-- EXPIRY BAR -->
+            <!-- Expiry bar -->
             <div class="expiry-bar">
               <div class="expiry-bar-label">
                 <span>⏱ Expires in</span>
@@ -98,15 +122,360 @@
               </div>
             </div>
 
-            <!-- STATS -->
+            <!-- Stats -->
             <div class="stats-grid">
               <div class="stat-item">
                 <span class="stat-num" id="dlCount">0</span>
                 <span class="stat-lbl">Downloads</span>
               </div>
               <div class="stat-item">
-                <span class="stat-num" id="dlLimit">∞</span>
+                <span class="stat-num" id="dlLimitStat">∞</span>
                 <span class="stat-lbl">DL Limit</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-num" style="font-size:.85rem;" id="dlLastTime">Never</span>
+                <span class="stat-lbl">Last DL</span>
+              </div>
+            </div>
+
+            <!-- DOWNLOAD BUTTON -->
+            <button class="btn-download" id="btnDownload" style="border:none;cursor:pointer;">
+              ⬇&nbsp;&nbsp;Download File
+            </button>
+
+            <!-- Share -->
+            <div style="text-align:center;margin-top:16px;">
+              <p style="font-size:.78rem;color:var(--text-3);margin-bottom:10px;">Share this link</p>
+              <div class="share-actions" style="justify-content:center;">
+                <button class="btn-share" id="btnCopyLink">🔗 Copy Link</button>
+                <a class="btn-share whatsapp" id="dlShareWA" href="#" target="_blank">💬 WhatsApp</a>
+                <a class="btn-share telegram" id="dlShareTG" href="#" target="_blank">✈️ Telegram</a>
+              </div>
+            </div>
+
+            <!-- History -->
+            <div class="download-history">
+              <h4>📊 Download History</h4>
+              <div id="historyList"><div style="color:var(--text-3);font-size:.82rem;">No downloads yet</div></div>
+            </div>
+
+          </div>
+        </div>
+
+        <div style="text-align:center;margin-top:24px;">
+          <a href="index.html" style="font-size:.78rem;color:var(--text-3);text-decoration:none;">
+            Share your own files with <strong style="color:var(--accent-2);">DibyaShare</strong> →
+          </a>
+        </div>
+
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <p>Created by <strong>Dibya Jyoti Mahanta</strong> · DibyaShare v1.0</p>
+  </footer>
+
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script src="script.js"></script>
+  <script>
+  document.addEventListener('DOMContentLoaded', () => {
+    initTheme();
+    document.getElementById('themeToggle').addEventListener('click', toggleTheme);
+
+    const sid = new URLSearchParams(location.search).get('id');
+    if (!sid) return showState('error', 'No file ID in URL.');
+
+    // ── Load share from Firebase ──────────────────────────
+    loadShare(sid).then(meta => {
+      if (!meta)                                              return showState('error', 'File not found.');
+      if (Date.now() > meta.expiresAt)                        return showState('expired');
+      if (meta.dlLimit > 0 && meta.downloads >= meta.dlLimit) return showState('error', 'Download limit reached.');
+      if (meta.password)                                      return showPw(meta, sid);
+      renderPage(meta, sid);
+    }).catch(e => showState('error', 'Load failed: ' + e.message));
+  });
+
+  // ── Show a state panel ────────────────────────────────
+  function showState(state, msg) {
+    document.getElementById('stateLoading').classList.add('hidden');
+    document.getElementById('stateError').classList.add('hidden');
+    document.getElementById('stateExpired').classList.add('hidden');
+    document.getElementById('statePw').classList.add('hidden');
+    document.getElementById('stateMain').classList.add('hidden');
+
+    if (state === 'error') {
+      document.getElementById('stateError').classList.remove('hidden');
+      if (msg) document.getElementById('errorMsg').textContent = msg;
+    } else if (state === 'expired') {
+      document.getElementById('stateExpired').classList.remove('hidden');
+    } else if (state === 'pw') {
+      document.getElementById('statePw').classList.remove('hidden');
+    } else if (state === 'main') {
+      document.getElementById('stateMain').classList.remove('hidden');
+    }
+  }
+
+  // ── Password gate ─────────────────────────────────────
+  function showPw(meta, sid) {
+    showState('pw');
+    const inp = document.getElementById('pwInput');
+    const btn = document.getElementById('btnUnlock');
+    const err = document.getElementById('pwError');
+    const attempt = () => {
+      if (btoa(inp.value) === meta.password) {
+        err.style.display = 'none';
+        renderPage(meta, sid);
+      } else {
+        err.style.display = 'block';
+        inp.value = '';
+        inp.focus();
+      }
+    };
+    btn.onclick    = attempt;
+    inp.onkeydown  = e => { if (e.key === 'Enter') attempt(); };
+  }
+
+  // ── Render main download page ─────────────────────────
+  function renderPage(meta, sid) {
+    showState('main');
+    const f = meta.primaryFile;
+
+    // Header
+    document.getElementById('fileIconWrap').innerHTML = buildIconOrThumb(f);
+    document.getElementById('dlFileName').textContent = f.name;
+    document.getElementById('dlFileMeta').textContent = formatSize(f.size) + ' · ' + (f.type || 'Unknown');
+    document.getElementById('dlBadge').textContent    = sid;
+    document.getElementById('dlCount').textContent    = meta.downloads || 0;
+    document.getElementById('dlLimitStat').textContent= meta.dlLimit > 0 ? meta.dlLimit : '∞';
+
+    const last = (meta.downloadHistory || []).slice(-1)[0];
+    document.getElementById('dlLastTime').textContent = last ? new Date(last.time).toLocaleString() : 'Never';
+
+    // Note
+    if (meta.note) {
+      document.getElementById('uploaderNote').classList.remove('hidden');
+      document.getElementById('noteText').textContent = meta.note;
+    }
+
+    // Preview
+    buildPreview(f);
+
+    // Expiry
+    const tickExpiry = () => {
+      const d = meta.expiresAt - Date.now();
+      document.getElementById('dlExpiry').textContent   = d > 0 ? formatTime(d) : 'Expired';
+      document.getElementById('expiryFill').style.width = Math.max(0, Math.min(100, d/(meta.expiry*1000)*100)) + '%';
+    };
+    tickExpiry(); setInterval(tickExpiry, 1000);
+
+    // Share buttons
+    const pageUrl = location.href;
+    const shareMsg = 'Check out this file on DibyaShare';
+    document.getElementById('btnCopyLink').onclick = () => {
+      navigator.clipboard.writeText(pageUrl).then(() => toast('Link copied!', 'success'));
+    };
+    document.getElementById('dlShareWA').href = `https://wa.me/?text=${encodeURIComponent(shareMsg+'\n'+pageUrl)}`;
+    document.getElementById('dlShareTG').href = `https://t.me/share/url?url=${encodeURIComponent(pageUrl)}&text=${encodeURIComponent(shareMsg)}`;
+
+    // Download button — SYNCHRONOUS, no await before click
+    document.getElementById('btnDownload').onclick = function() {
+      doDownload(this, meta, sid, f);
+    };
+
+    renderHistory(meta);
+  }
+
+  // ── Build icon or image thumbnail for header ──────────
+  function buildIconOrThumb(f) {
+    if (f.url && f.type?.startsWith('image/')) {
+      return `<img src="${f.url}" style="width:72px;height:72px;border-radius:12px;object-fit:cover;border:2px solid var(--border);" onerror="this.replaceWith(Object.assign(document.createElement('span'),{textContent:'${getFileIcon(f.type)}',style:'font-size:3.5rem'}))">`;
+    }
+    return `<span style="font-size:3.5rem;">${getFileIcon(f.type)}</span>`;
+  }
+
+  // ── Build inline preview ──────────────────────────────
+  function buildPreview(f) {
+    const box  = document.getElementById('previewBox');
+    const url  = f.url;
+    const mime = f.type || '';
+
+    if (!url) { box.style.display = 'none'; return; }
+
+    if (mime.startsWith('image/')) {
+      const img = document.createElement('img');
+      img.onload  = () => { box.style.display = 'block'; };
+      img.onerror = () => { box.style.display = 'none'; };
+      img.src     = url;
+      box.appendChild(img);
+
+    } else if (mime.startsWith('video/')) {
+      const v    = document.createElement('video');
+      v.controls = true;
+      v.src      = url;
+      v.preload  = 'metadata';
+      box.appendChild(v);
+      box.style.display = 'block';
+
+    } else if (mime.startsWith('audio/')) {
+      const a    = document.createElement('audio');
+      a.controls = true;
+      a.src      = url;
+      box.appendChild(a);
+      box.style.display = 'block';
+
+    } else if (mime === 'application/pdf') {
+      const em  = document.createElement('embed');
+      em.src    = url;
+      em.type   = 'application/pdf';
+      em.width  = '100%';
+      em.height = '360';
+      box.appendChild(em);
+      box.style.display = 'block';
+
+    } else if (mime.startsWith('text/') && url.startsWith('data:')) {
+      try {
+        const raw  = url.split(',')[1];
+        const text = decodeURIComponent(escape(atob(raw)));
+        const pre  = document.createElement('pre');
+        pre.textContent = text;
+        box.appendChild(pre);
+        box.style.display = 'block';
+      } catch { box.style.display = 'none'; }
+
+    } else {
+      const d = document.createElement('div');
+      d.className   = 'no-preview';
+      d.textContent = '👁️ Preview not available for this file type';
+      box.appendChild(d);
+      box.style.display = 'block';
+    }
+  }
+
+  // ── DOWNLOAD — must be synchronous within user gesture ─
+  function doDownload(btn, meta, sid, f) {
+    if (!f.url) { toast('File URL missing', 'error'); return; }
+
+    btn.disabled    = true;
+    btn.textContent = '⬇ Downloading…';
+
+    // Build downloadable URL synchronously
+    let dlUrl     = f.url;
+    let isBlob    = false;
+
+    if (f.url.startsWith('data:')) {
+      // base64 → Blob → Object URL (synchronous)
+      try {
+        const [head, b64] = f.url.split(',');
+        const mime        = head.match(/:(.*?);/)[1];
+        const raw         = atob(b64);
+        const arr         = new Uint8Array(raw.length);
+        for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+        const blob = new Blob([arr], { type: mime });
+        dlUrl  = URL.createObjectURL(blob);
+        isBlob = true;
+      } catch(e) {
+        toast('Error preparing file: ' + e.message, 'error');
+        btn.disabled = false;
+        btn.textContent = '⬇ Download File';
+        return;
+      }
+    }
+
+    // Click the link — still inside synchronous onclick = valid user gesture
+    const a     = document.createElement('a');
+    a.href      = dlUrl;
+    a.download  = f.name;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+
+    if (isBlob) setTimeout(() => URL.revokeObjectURL(dlUrl), 60000);
+
+    toast('Download started! 🎉', 'success');
+    btn.classList.add('done');
+    setTimeout(() => {
+      btn.disabled = false;
+      btn.classList.remove('done');
+      btn.innerHTML = '⬇&nbsp;&nbsp;Download Again';
+    }, 3000);
+
+    // Stats update — async, after download triggered
+    ;(async () => {
+      let country = 'Unknown';
+      try {
+        const r  = await fetch('https://ipapi.co/json/', { signal: AbortSignal.timeout(2000) });
+        const d  = await r.json();
+        country  = d.country_name || 'Unknown';
+      } catch {}
+
+      const history = [...(meta.downloadHistory || []), { time: Date.now(), country }];
+      const newDl   = (meta.downloads || 0) + 1;
+      meta.downloads       = newDl;
+      meta.downloadHistory = history;
+      document.getElementById('dlCount').textContent    = newDl;
+      document.getElementById('dlLastTime').textContent = new Date().toLocaleString();
+      renderHistory(meta);
+
+      try { await updateShare(sid, { downloads: newDl, downloadHistory: history }); } catch {}
+
+      if (meta.oneTime) {
+        try { await updateShare(sid, { dlLimit: 1 }); } catch {}
+        btn.textContent = '⛔ One-time link used';
+        btn.disabled    = true;
+      }
+      if (meta.autoDelete) {
+        try { await updateShare(sid, { expiresAt: Date.now() - 1 }); } catch {}
+      }
+    })();
+  }
+
+  // ── Helpers ───────────────────────────────────────────
+  function renderHistory(meta) {
+    const wrap = document.getElementById('historyList');
+    if (!wrap) return;
+    const h = meta.downloadHistory || [];
+    wrap.innerHTML = h.length
+      ? h.slice(-5).reverse().map(x =>
+          `<div class="history-item">
+            <span>🌍</span>
+            <span>${escHtml(x.country)}</span>
+            <span style="margin-left:auto;color:var(--text-3)">${new Date(x.time).toLocaleString()}</span>
+          </div>`).join('')
+      : '<div style="color:var(--text-3);font-size:.82rem;">No downloads yet</div>';
+  }
+
+  function getFileIcon(mime) {
+    if (!mime)                     return '📄';
+    if (mime.startsWith('image/')) return '🖼️';
+    if (mime.startsWith('video/')) return '🎬';
+    if (mime.startsWith('audio/')) return '🎵';
+    if (mime === 'application/pdf') return '📕';
+    if (mime.includes('word'))     return '📝';
+    if (mime.includes('excel') || mime.includes('spreadsheet')) return '📊';
+    if (mime.includes('zip'))      return '🗜️';
+    if (mime.startsWith('text/'))  return '📄';
+    return '📁';
+  }
+  function formatSize(b) {
+    if (b < 1024)    return b + ' B';
+    if (b < 1048576) return (b/1024).toFixed(1) + ' KB';
+    return (b/1048576).toFixed(2) + ' MB';
+  }
+  function formatTime(ms) {
+    const s=Math.floor(ms/1000),m=Math.floor(s/60),h=Math.floor(m/60);
+    if(h>0) return h+'h '+(m%60)+'m';
+    if(m>0) return m+'m '+(s%60)+'s';
+    return s+'s';
+  }
+  function escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+  </script>
+</body>
+</html>
               </div>
               <div class="stat-item">
                 <span class="stat-num" style="font-size:0.85rem;" id="dlLastTime">Never</span>
