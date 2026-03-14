@@ -727,16 +727,109 @@ function renderPreview(f) {
   sec.classList.remove('hidden');
 }
 
-// ── base64 data URL → Blob (needed for mobile download) ──
+// ── base64 data URL → Blob ───────────────────────────────
 function dataURLtoBlob(dataUrl) {
   const [header, base64] = dataUrl.split(',');
   const mime = header.match(/:(.*?);/)[1];
   const binary = atob(base64);
   const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) {
-    bytes[i] = binary.charCodeAt(i);
-  }
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
   return new Blob([bytes], { type: mime });
+}
+
+// ── Universal download — works on mobile Chrome ──────────
+// Strategy:
+//   1. Build a Blob from the file data
+//   2. Open a new tab showing a minimal HTML page with the file embedded
+//   3. The new page auto-triggers download AND shows the file inline
+//      so the user can long-press → Save / Share on mobile
+function triggerDownload(fileUrl, fileName, fileMime) {
+  if (fileUrl.startsWith('data:')) {
+    // Convert base64 → Blob → Object URL
+    const blob      = dataURLtoBlob(fileUrl);
+    const objectUrl = URL.createObjectURL(blob);
+    openDownloadTab(objectUrl, fileName, fileMime, true);
+  } else {
+    // External URL — open directly
+    openDownloadTab(fileUrl, fileName, fileMime, false);
+  }
+}
+
+function openDownloadTab(url, fileName, fileMime, isBlob) {
+  // Build a self-contained HTML page that:
+  //   • Shows the file inline (image/video/audio/pdf/text)
+  //   • Has a big "Save File" button
+  //   • Auto-clicks download on desktop
+  const isImage  = fileMime?.startsWith('image/');
+  const isVideo  = fileMime?.startsWith('video/');
+  const isAudio  = fileMime?.startsWith('audio/');
+  const isPdf    = fileMime === 'application/pdf';
+  const isText   = fileMime?.startsWith('text/');
+
+  let previewHtml = '';
+  if (isImage)  previewHtml = `<img src="${url}" style="max-width:100%;max-height:60vh;border-radius:12px;display:block;margin:0 auto 20px;">`;
+  else if (isVideo) previewHtml = `<video src="${url}" controls style="max-width:100%;max-height:60vh;border-radius:12px;display:block;margin:0 auto 20px;"></video>`;
+  else if (isAudio) previewHtml = `<audio src="${url}" controls style="width:100%;margin-bottom:20px;"></audio>`;
+  else if (isPdf)   previewHtml = `<iframe src="${url}" style="width:100%;height:60vh;border:none;border-radius:12px;margin-bottom:20px;"></iframe>`;
+  else previewHtml = `<div style="background:#1a1a2e;border-radius:12px;padding:24px;margin-bottom:20px;font-size:48px;text-align:center;">📄</div>`;
+
+  const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Download — ${fileName}</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{background:#0a0a0f;color:#f0f0f8;font-family:system-ui,sans-serif;
+         min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+    .card{background:#18181f;border:1px solid #2e2e3e;border-radius:20px;
+          padding:28px;max-width:520px;width:100%;text-align:center}
+    h2{font-size:1.1rem;font-weight:700;margin-bottom:6px;word-break:break-all}
+    p{color:#a8a8c0;font-size:.85rem;margin-bottom:20px}
+    .btn{display:inline-flex;align-items:center;gap:8px;padding:14px 32px;
+         background:linear-gradient(135deg,#7c6aff,#a855f7);color:#fff;
+         border:none;border-radius:12px;font-size:1rem;font-weight:700;
+         cursor:pointer;text-decoration:none;width:100%;justify-content:center;margin-bottom:12px}
+    .hint{font-size:.78rem;color:#6a6a88;line-height:1.5}
+  </style>
+</head>
+<body>
+<div class="card">
+  <div style="font-size:2.5rem;margin-bottom:12px">⬇️</div>
+  <h2>${fileName}</h2>
+  <p>DibyaShare — tap the button below to save</p>
+  ${previewHtml}
+  <a class="btn" href="${url}" download="${fileName}" id="dlBtn">⬇&nbsp;&nbsp;Save File</a>
+  <p class="hint">On mobile: tap & hold the button → "Download link" or "Save"<br>
+  Or long-press the preview above → "Save image/video"</p>
+</div>
+<script>
+  // Auto-click on desktop
+  setTimeout(() => document.getElementById('dlBtn').click(), 500);
+</script>
+</body>
+</html>`;
+
+  // Write into a new tab
+  const tab = window.open('', '_blank');
+  if (tab) {
+    tab.document.write(html);
+    tab.document.close();
+    if (isBlob) {
+      // Revoke blob URL when tab closes (best-effort)
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    }
+  } else {
+    // Popup blocked — fallback: navigate current tab
+    if (isBlob) {
+      const a = document.createElement('a');
+      a.href = url; a.download = fileName;
+      document.body.appendChild(a); a.click(); a.remove();
+    } else {
+      window.location.href = url;
+    }
+  }
 }
 
 async function doDownload(meta, sid, f) {
@@ -744,10 +837,10 @@ async function doDownload(meta, sid, f) {
   btn.disabled    = true;
   btn.textContent = '⬇ Preparing…';
 
-  // Country detection (best-effort)
+  // Country detection (best-effort, short timeout)
   let country = 'Unknown';
   try {
-    const r = await fetch('https://ipapi.co/json/', { signal: AbortSignal.timeout(3000) });
+    const r = await fetch('https://ipapi.co/json/', { signal: AbortSignal.timeout(2000) });
     const d = await r.json();
     country = d.country_name || 'Unknown';
   } catch {}
@@ -765,37 +858,8 @@ async function doDownload(meta, sid, f) {
 
   // Trigger download
   if (f.url) {
-    try {
-      if (f.url.startsWith('data:')) {
-        // base64 data URL → convert to Blob → Object URL
-        // Mobile Chrome cannot download data: URLs directly via <a download>
-        const blob = dataURLtoBlob(f.url);
-        const objectUrl = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = objectUrl;
-        a.download = f.name;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        // Revoke after short delay
-        setTimeout(() => URL.revokeObjectURL(objectUrl), 10000);
-      } else {
-        // External URL — open in new tab (best for mobile)
-        const a = document.createElement('a');
-        a.href = f.url;
-        a.download = f.name;
-        a.target = '_blank';
-        a.rel = 'noopener';
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-      }
-      toast('Download started! 🎉', 'success');
-    } catch (e) {
-      // Final fallback
-      window.open(f.url, '_blank');
-      toast('Opening file… tap to save 📥', 'info');
-    }
+    triggerDownload(f.url, f.name, f.type);
+    toast('Opening download tab… 📥', 'success');
   } else {
     toast('File URL not available', 'error');
   }
